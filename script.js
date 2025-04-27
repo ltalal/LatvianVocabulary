@@ -369,20 +369,63 @@ function parseCSVLine(line) {
         russian = russian.substring(1, russian.length - 1);
     }
 
+    // Store original full text with parentheses
+    const latvianFull = latvian.split(';').map(ans => ans.trim());
+    const englishFull = english.split(';').map(ans => ans.trim());
+    const russianFull = russian ? russian.split(';').map(ans => ans.trim()) : [];
+
     // Remove text within parentheses
     const removeParentheses = (text) => {
         return text.replace(/\s*\([^)]*\)/g, '').trim();
     };
 
     // Process each part to remove parentheses and split by semicolons
+    // For the Russian field specifically in the test example, we need to handle comma separation
     const latvianAnswers = latvian.split(';').map(ans => removeParentheses(ans.trim()));
     const englishAnswers = english.split(';').map(ans => removeParentheses(ans.trim()));
-    const russianAnswers = russian ? russian.split(';').map(ans => removeParentheses(ans.trim())) : [];
+    
+    // Special handling for Russian field to split by both comma and semicolon
+    let russianAnswers = [];
+    if (russian) {
+        // First split by semicolons
+        const russianParts = russian.split(';');
+        
+        for (const part of russianParts) {
+            // For each part, check if it contains a comma outside of parentheses
+            let inParen = false;
+            let commaPositions = [];
+            
+            for (let i = 0; i < part.length; i++) {
+                if (part[i] === '(') inParen = true;
+                else if (part[i] === ')') inParen = false;
+                else if (part[i] === ',' && !inParen) commaPositions.push(i);
+            }
+            
+            // If we found commas outside parentheses, split by them
+            if (commaPositions.length > 0) {
+                let lastPos = 0;
+                for (const pos of commaPositions) {
+                    const subPart = part.substring(lastPos, pos).trim();
+                    if (subPart) russianAnswers.push(removeParentheses(subPart));
+                    lastPos = pos + 1;
+                }
+                // Don't forget the last part
+                const lastPart = part.substring(lastPos).trim();
+                if (lastPart) russianAnswers.push(removeParentheses(lastPart));
+            } else {
+                // No commas outside parentheses, just add the whole part
+                russianAnswers.push(removeParentheses(part.trim()));
+            }
+        }
+    }
 
     return {
         latvian: latvianAnswers,
         english: englishAnswers,
-        russian: russianAnswers
+        russian: russianAnswers,
+        latvianFull: latvianFull,
+        englishFull: englishFull,
+        russianFull: russianFull
     };
 }
 
@@ -534,9 +577,16 @@ async function init() {
     showAnswerButton.addEventListener('click', () => {
         const currentWord = vocabulary[currentWordIndex];
         const translationField = getTranslationDirection();
+        const fullField = translationField + 'Full';
+        
+        // Use the full version with parentheses for feedback if available
+        const displayAnswer = currentWord[fullField] && currentWord[fullField].length > 0 ? 
+                             currentWord[fullField].join('; ') : 
+                             currentWord[translationField].join('; ');
+        
         feedbackElement.innerHTML = `
             <div class="incorrect">
-                ${getTranslation('fullAnswer')} ${currentWord[translationField].join('; ')}
+                ${getTranslation('fullAnswer')} ${displayAnswer}
             </div>
         `;
         disableInputs();
@@ -842,9 +892,16 @@ function checkCardAnswer(selectedCard) {
     } else {
         // In cards mode, we don't decrease attempts - just show the correct answer
         const translationField = getTranslationDirection();
+        const fullField = translationField + 'Full';
+        
+        // Use the full version with parentheses for feedback if available
+        const displayAnswer = currentWord[fullField] && currentWord[fullField].length > 0 ? 
+                             currentWord[fullField].join('; ') : 
+                             currentWord[translationField].join('; ');
+        
         feedbackElement.innerHTML = `
             <div class="incorrect">
-                ${getTranslation('incorrectAnswer')} ${currentWord[translationField].join('; ')}
+                ${getTranslation('incorrectAnswer')} ${displayAnswer}
             </div>
         `;
         
@@ -879,7 +936,14 @@ function handleCorrectAnswer(currentWord) {
     saveMasteredWords();
     
     const translationField = getTranslationDirection();
-    feedbackElement.innerHTML = `<div class="correct">${getTranslation('correct')}<br>${getTranslation('fullAnswer')} ${currentWord[translationField].join('; ')}</div>`;
+    const fullField = translationField + 'Full';
+    
+    // Use the full version with parentheses for feedback if available
+    const displayAnswer = currentWord[fullField] && currentWord[fullField].length > 0 ? 
+                         currentWord[fullField].join('; ') : 
+                         currentWord[translationField].join('; ');
+    
+    feedbackElement.innerHTML = `<div class="correct">${getTranslation('correct')}<br>${getTranslation('fullAnswer')} ${displayAnswer}</div>`;
 
     // Reset attempts for next word
     attemptsLeft = 3;
@@ -919,9 +983,16 @@ function handleIncorrectAnswer(userAnswerClean, correctAnswers, currentWord) {
         userInputElement.focus(); // Keep focus for retry
     } else {
         const translationField = getTranslationDirection();
+        const fullField = translationField + 'Full';
+        
+        // Use the full version with parentheses for feedback if available
+        const displayAnswer = currentWord[fullField] && currentWord[fullField].length > 0 ? 
+                             currentWord[fullField].join('; ') : 
+                             currentWord[translationField].join('; ');
+        
         feedbackElement.innerHTML = `
             <div class="incorrect">
-                ${getTranslation('incorrectAnswer')} ${currentWord[translationField].join('; ')}<br>
+                ${getTranslation('incorrectAnswer')} ${displayAnswer}<br>
                 ${getTranslation('minEditDistance')} ${minDistance}
             </div>
         `;
@@ -966,8 +1037,15 @@ function showSpecificWord(index) {
     const currentWord = vocabulary[currentWordIndex];
     // Determine which word to show (target) and which to use as identifier (source)
     const sourceField = getSourceField();
-    const wordToShow = currentWord[sourceField][0];
-    const wordIdentifier = currentWord[sourceField][0]; // Same as wordToShow
+    const fullField = sourceField + 'Full'; // Get the corresponding full field
+    
+    // Use the full version with parentheses for display if available
+    const wordToShow = currentWord[fullField] && currentWord[fullField].length > 0 ? 
+                        currentWord[fullField].join('; ') : 
+                        currentWord[sourceField].join('; ');
+    
+    // Keep using first item for identifier (must match what's used for mastered words)
+    const wordIdentifier = currentWord[sourceField][0];
     
     wordToTranslateElement.textContent = wordToShow;
 
@@ -1028,10 +1106,14 @@ function generateCards(correctIndex) {
     
     // Create cards
     const translationField = getTranslationDirection();
+    const fullField = translationField + 'Full';
     
     allIndices.forEach(index => {
         const word = vocabulary[index];
-        const cardText = word[translationField][0];
+        // Use the full version with parentheses for card text if available
+        const cardText = word[fullField] && word[fullField].length > 0 ? 
+                        word[fullField][0] : 
+                        word[translationField][0];
         
         const card = document.createElement('div');
         card.className = 'card-option';
@@ -1143,7 +1225,7 @@ function updateScore() {
 async function loadVocabulary() {
     try {
         console.log('Starting to load vocabulary...');
-        const response = await fetch('words.csv');
+        const response = await fetch('words_short_fixed_clean.csv');
         console.log('Fetch response status:', response.status);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);

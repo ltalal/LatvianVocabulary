@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Latvian Vocabulary Trainer Tests</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.5;
+        }
+        h1, h2 {
+            color: #2c3e50;
+        }
+        #testResults {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 20px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 10px 0;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .hidden {
+            display: none;
+        }
+        /* Mock elements needed for tests */
+        #mockArea {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Latvian Vocabulary Trainer Tests</h1>
+    <p>This page runs unit tests for the Latvian Vocabulary Trainer application, 
+    focusing on validating that the app correctly handles words with parentheses.</p>
+    
+    <button id="runTestsBtn">Run Tests</button>
+    
+    <div id="testResults" class="hidden"></div>
+    
+    <!-- Mock elements required by the tests -->
+    <div id="mockArea">
+        <div id="wordToTranslate"></div>
+        <div id="feedback"></div>
+        <button id="showAnswerButton">Show Answer</button>
+        <button id="skipButton">Next Word</button>
+    </div>
+    
+    <script>
+        // Set up mock global variables required by the tests
+        window.wordToTranslateElement = document.getElementById('wordToTranslate');
+        window.feedbackElement = document.getElementById('feedback');
+        window.showAnswerButton = document.getElementById('showAnswerButton');
+        window.skipButton = document.getElementById('skipButton');
+        window.cardsContainer = document.createElement('div');
+        document.body.appendChild(window.cardsContainer);
+        
+        // Mock other required globals
+        window.vocabulary = [];
+        window.currentWordIndex = -1;
+        window.currentDirection = 'lv-ru';
+        window.masteredWords = {'lv-ru': new Set(), 'ru-lv': new Set(), 'lv-en': new Set(), 'en-lv': new Set()};
+        window.attemptsLeft = 3;
+        window.progressBar = document.createElement('div');
+        
+        // Ensure getTranslation exists
+        if (typeof getTranslation !== 'function') {
+            window.getTranslation = function(key) {
+                const translations = {
+                    'fullAnswer': 'The correct answer is:',
+                    'incorrectAnswer': 'Incorrect. The correct answer is:',
+                    'congratulations': 'Congratulations!',
+                    'incorrect': 'Incorrect.',
+                    'minEditDistance': 'Distance to correct answer:',
+                    'attemptsLeft': 'Try again! Attempts left:'
+                };
+                return translations[key] || key;
+            };
+        }
+        
+        // Ensure getTranslationDirection exists
+        if (typeof getTranslationDirection !== 'function') {
+            window.getTranslationDirection = function() {
+                if (window.currentDirection === 'lv-ru' || window.currentDirection === 'lv-en') {
+                    return window.currentDirection === 'lv-ru' ? 'russian' : 'english';
+                } else {
+                    return 'latvian';
+                }
+            };
+        }
+        
+        // Ensure getSourceField exists
+        if (typeof getSourceField !== 'function') {
+            window.getSourceField = function() {
+                return window.currentDirection.startsWith('lv') ? 'latvian' : 
+                       (window.currentDirection.startsWith('en') ? 'english' : 'russian');
+            };
+        }
+        
+        // Ensure updateUrlHash exists
+        if (typeof updateUrlHash !== 'function') {
+            window.updateUrlHash = function() {
+                console.log('Mock updateUrlHash called');
+            };
+        }
+        
+        // Ensure showSpecificWord exists with a simple implementation
+        if (typeof showSpecificWord !== 'function') {
+            window.showSpecificWord = function(index) {
+                console.log('Mock showSpecificWord called with index:', index);
+                window.currentWordIndex = index;
+                
+                if (index === -1 || !window.vocabulary[index]) {
+                    console.log('Invalid index or no vocabulary:', index);
+                    return;
+                }
+                
+                const word = window.vocabulary[index];
+                console.log('Word from vocabulary:', word);
+                
+                const sourceField = getSourceField();
+                const fullField = sourceField + 'Full';
+                
+                let displayText;
+                if (word[fullField] && word[fullField].length > 0) {
+                    displayText = word[fullField].join('; ');
+                } else {
+                    displayText = word[sourceField].join('; ');
+                }
+                
+                window.wordToTranslateElement.textContent = displayText;
+                console.log('Set wordToTranslateElement text to:', displayText);
+            };
+        }
+        
+        // Add mock for showAnswerButton onclick
+        window.showAnswerButton.onclick = function() {
+            if (window.currentWordIndex === -1 || !window.vocabulary[window.currentWordIndex]) {
+                console.log('Cannot show answer: invalid word index');
+                return;
+            }
+            
+            const currentWord = window.vocabulary[window.currentWordIndex];
+            const translationField = getTranslationDirection();
+            const fullField = translationField + 'Full';
+            
+            let displayAnswer;
+            if (currentWord[fullField] && currentWord[fullField].length > 0) {
+                displayAnswer = currentWord[fullField].join('; ');
+            } else {
+                displayAnswer = currentWord[translationField].join('; ');
+            }
+            
+            window.feedbackElement.innerHTML = `
+                <div class="incorrect">
+                    ${getTranslation('fullAnswer')} ${displayAnswer}
+                </div>
+            `;
+            
+            console.log('Mock show answer clicked, displaying:', displayAnswer);
+        };
+    </script>
+    
+    <!-- Include the main app script -->
+    <script src="script.js"></script>
+    
+    <!-- Include the test script -->
+    <script src="tests.js"></script>
+    
+    <script>
+        // Redirect console output to testResults div
+        const testResults = document.getElementById('testResults');
+        const originalConsoleLog = console.log;
+        const originalConsoleError = console.error;
+        
+        console.log = function() {
+            const args = Array.from(arguments);
+            testResults.innerHTML += args.join(' ') + '\n';
+            originalConsoleLog.apply(console, args);
+        };
+        
+        console.error = function() {
+            const args = Array.from(arguments);
+            testResults.innerHTML += '<span style="color: red;">' + args.join(' ') + '</span>\n';
+            originalConsoleError.apply(console, args);
+        };
+        
+        // Run tests when button is clicked
+        document.getElementById('runTestsBtn').addEventListener('click', function() {
+            testResults.innerHTML = '';
+            testResults.classList.remove('hidden');
+            
+            // Wait a moment for UI to update
+            setTimeout(() => {
+                try {
+                    runVocabularyTests();
+                } catch (e) {
+                    console.error('Test failed with error:', e);
+                    console.error(e.stack);
+                }
+            }, 100);
+        });
+    </script>
+</body>
+</html> 
