@@ -34,7 +34,7 @@ function editDistance(a, b) {
 }
 
 // Language & UI translation
-let currentLanguage = 'ru'; // Default language is Russian
+let currentLanguage = 'lv'; // Changed default language to Latvian
 
 // Translation dictionaries
 const translations = {
@@ -99,6 +99,37 @@ const translations = {
         'confirmClearAll': 'Вы уверены, что хотите удалить все изученные слова?',
         'importSuccess': 'Изученные слова успешно импортированы!',
         'importError': 'Ошибка импорта изученных слов. Пожалуйста, убедитесь, что формат файла верный.'
+    },
+    'lv': {
+        'appTitle': 'Latviešu vārdu krājuma treneris',
+        'lvToLang': 'Latviešu → Angļu/Krievu',
+        'langToLv': 'Angļu/Krievu → Latviešu',
+        'cardsMode': 'Kartīšu režīms',
+        'typingMode': 'Ievades režīms',
+        'check': 'Pārbaudīt',
+        'showAnswer': 'Parādīt atbildi',
+        'nextWord': 'Nākamais vārds',
+        'masteredWords': 'Apgūtie vārdi',
+        'totalMasteredWords': 'Kopā apgūtie vārdi:',
+        'clearAll': 'Dzēst visu',
+        'deleteWord': 'Dzēst',
+        'export': 'Eksportēt',
+        'import': 'Importēt',
+        'enterAnswer': 'Ievadiet atbildi',
+        'cards': 'kartītes',
+        'correct': 'Pareizi! Malacis!',
+        'fullAnswer': 'Pareizā atbilde ir:',
+        'incorrect': 'Nepareizi.',
+        'minEditDistance': 'Attālums līdz pareizai atbildei:',
+        'attemptsLeft': 'Mēģini vēlreiz! Atlikušie mēģinājumi:',
+        'incorrectAnswer': 'Nepareizi. Pareizā atbilde ir:',
+        'congratulations': 'Apsveicam! Jūs esat apguvis visus vārdus šajā virzienā!',
+        'score': 'Rezultāts:',
+        'masteredWordsCount': 'Apgūtie vārdi:',
+        'noMasteredWords': 'Šajā virzienā pagaidām nav apgūtu vārdu.',
+        'confirmClearAll': 'Vai tiešām vēlaties dzēst visus apgūtos vārdus?',
+        'importSuccess': 'Apgūtie vārdi veiksmīgi importēti!',
+        'importError': 'Kļūda importējot apgūtos vārdus. Lūdzu, pārliecinieties, ka fails ir pareizā formātā.'
     }
 };
 
@@ -150,17 +181,18 @@ const typingLabel = document.getElementById('typing-label');
 const masteredWordsTitle = document.getElementById('masteredWordsTitle');
 const masteredCountText = document.getElementById('masteredCountText');
 
-// Function to get translation for a key
+// Function to get translation for a key - always use Latvian for UI
 function getTranslation(key) {
-    if (typeof translations === 'undefined' || !translations || !translations[currentLanguage]) {
-        console.warn('Translations not loaded yet or language not found:', currentLanguage);
+    // Always use Latvian translations regardless of currentLanguage setting
+    if (typeof translations === 'undefined' || !translations || !translations['lv']) {
+        console.warn('Latvian translations not loaded yet');
         // Return a default value based on the key
         return key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1').trim();
     }
-    return translations[currentLanguage][key] || 'Translation missing';
+    return translations['lv'][key] || 'Translation missing';
 }
 
-// Function to update all UI text based on current language
+// Function to update all UI text based on Latvian language
 function updateUILanguage() {
     // Update static text elements
     appTitle.textContent = getTranslation('appTitle');
@@ -181,27 +213,30 @@ function updateUILanguage() {
     const currentCount = masteredCount.textContent;
     masteredCountText.innerHTML = `${getTranslation('totalMasteredWords')} <span id="masteredCount">${currentCount}</span>`;
     
-    // Update direction labels based on current language
+    // Update direction labels based on current direction but with Latvian text
     updateDirectionLabels();
     
     // Update score display with new translations
     updateScore();
 }
 
-// Function to update direction labels based on current language
+// Function to update direction labels using Latvian text
 function updateDirectionLabels() {
-    // Show/hide appropriate direction buttons based on language
-    const lvToLangLabel = document.querySelector(`label[for="${currentLanguage === 'ru' ? 'lv-ru' : 'lv-en'}"]`);
-    const langToLvLabel = document.querySelector(`label[for="${currentLanguage === 'ru' ? 'ru-lv' : 'en-lv'}"]`);
+    // Get the appropriate direction labels based on vocabulary language (but text in Latvian)
+    const vocabLanguage = (currentDirection === 'lv-ru' || currentDirection === 'ru-lv') ? 'ru' : 'en';
+    
+    // Show/hide appropriate direction buttons based on vocabulary language
+    const lvToLangLabel = document.querySelector(`label[for="${vocabLanguage === 'ru' ? 'lv-ru' : 'lv-en'}"]`);
+    const langToLvLabel = document.querySelector(`label[for="${vocabLanguage === 'ru' ? 'ru-lv' : 'en-lv'}"]`);
     
     lvToLangLabel.textContent = getTranslation('lvToLang');
     langToLvLabel.textContent = getTranslation('langToLv');
     
-    // Show/hide direction inputs based on language
+    // Show/hide direction inputs based on vocabulary language
     document.querySelectorAll('.direction-btn').forEach(input => {
         const isEnglish = input.id === 'lv-en' || input.id === 'en-lv';
         const isRussian = input.id === 'lv-ru' || input.id === 'ru-lv';
-        const shouldShow = (currentLanguage === 'en' && isEnglish) || (currentLanguage === 'ru' && isRussian);
+        const shouldShow = (vocabLanguage === 'en' && isEnglish) || (vocabLanguage === 'ru' && isRussian);
         
         input.style.display = shouldShow ? '' : 'none';
         document.querySelector(`label[for="${input.id}"]`).style.display = shouldShow ? '' : 'none';
@@ -262,7 +297,19 @@ function saveMasteredWords() {
 
 // Update mastered words count
 function updateMasteredCount() {
-    masteredCount.textContent = masteredWords[currentDirection].size;
+    const sourceField = getSourceField();
+    
+    // Count only mastered words that exist in the vocabulary
+    let validMasteredCount = 0;
+    masteredWords[currentDirection].forEach(word => {
+        // Check if this mastered word exists in the vocabulary
+        const exists = vocabulary.some(item => item[sourceField][0] === word);
+        if (exists) {
+            validMasteredCount++;
+        }
+    });
+    
+    masteredCount.textContent = validMasteredCount;
 }
 
 // Show mastered words in modal
@@ -508,16 +555,16 @@ async function init() {
         if (['lv-ru', 'ru-lv', 'lv-en', 'en-lv'].includes(hashDirection)) {
             currentDirection = hashDirection;
             
-            // Determine language based on direction
-            currentLanguage = (hashDirection === 'lv-ru' || hashDirection === 'ru-lv') ? 'ru' : 'en';
+            // Determine language based on direction (for vocabulary only, UI stays Latvian)
+            const vocabLanguage = (hashDirection === 'lv-ru' || hashDirection === 'ru-lv') ? 'ru' : 'en';
             
             // Set appropriate radio buttons
             document.getElementById(currentDirection).checked = true;
-            document.getElementById(currentLanguage).checked = true;
+            document.getElementById(vocabLanguage).checked = true;
         } else {
             // Default direction
             currentDirection = 'lv-ru';
-            currentLanguage = 'ru';
+            document.getElementById('ru').checked = true;
         }
 
         // Set mode if present
@@ -547,14 +594,12 @@ async function init() {
     } else {
         // Default settings if no hash
         currentDirection = 'lv-ru';
-        currentLanguage = 'ru';
+        document.getElementById('ru').checked = true;
         currentMode = 'cards'; // Set cards as default mode
         document.getElementById('cards').checked = true;
-        document.getElementById('ru').checked = true;
-        document.getElementById('lv-ru').checked = true;
     }
 
-    // Update UI with initial language
+    // Update UI always with Latvian language
     updateUILanguage();
 
     // Read initially checked card number
@@ -626,16 +671,13 @@ async function init() {
         });
     });
 
-    // Add language change handler
+    // Add language change handler - only affects vocabulary direction, not UI language
     languageInputs.forEach(input => {
         input.addEventListener('change', (e) => {
-            currentLanguage = e.target.value;
+            const vocabLanguage = e.target.value;
             
-            // Update UI text for new language
-            updateUILanguage();
-            
-            // Set appropriate direction based on language
-            const newDirection = currentLanguage === 'ru' ? 
+            // Set appropriate direction based on vocabulary language
+            const newDirection = vocabLanguage === 'ru' ? 
                 (currentDirection === 'lv-en' ? 'lv-ru' : (currentDirection === 'en-lv' ? 'ru-lv' : currentDirection)) :
                 (currentDirection === 'lv-ru' ? 'lv-en' : (currentDirection === 'ru-lv' ? 'en-lv' : currentDirection));
             
@@ -1216,9 +1258,20 @@ function enableInputs() {
 
 // Update score display
 function updateScore() {
-    const remainingWords = vocabulary.length - masteredWords[currentDirection].size;
-    const percentage = ((masteredWords[currentDirection].size / vocabulary.length) * 100).toFixed(1);
-    scoreElement.textContent = `${getTranslation('score')} ${score}/${totalAttempts} | ${getTranslation('masteredWordsCount')} ${masteredWords[currentDirection].size}/${vocabulary.length} (${percentage}%)`;
+    const sourceField = getSourceField();
+    
+    // Count only valid mastered words (those present in vocabulary)
+    let validMasteredCount = 0;
+    masteredWords[currentDirection].forEach(word => {
+        const exists = vocabulary.some(item => item[sourceField][0] === word);
+        if (exists) {
+            validMasteredCount++;
+        }
+    });
+    
+    const remainingWords = vocabulary.length - validMasteredCount;
+    const percentage = ((validMasteredCount / vocabulary.length) * 100).toFixed(1);
+    scoreElement.textContent = `${getTranslation('score')} ${score}/${totalAttempts} | ${getTranslation('masteredWordsCount')} ${validMasteredCount}/${vocabulary.length} (${percentage}%)`;
 }
 
 // Load vocabulary from CSV
